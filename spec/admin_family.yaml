@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: Virtual Bank — Family Administration
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  description: |
+    Manage the persons and accounts of the caller's own family. Every route requires a token from auth.yaml
+    belonging to a family admin (person.is_admin = true), otherwise 403. A family admin can manage any person
+    or account in that family (other families answer 404); no account_role is needed. Account `manager`
+    (account_role) only grants rights in operations.yaml.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Person
+    description: Create, list and update persons
+  - name: Account
+    description: Create, update and close accounts and their members
+  - name: Sessions
+    description: List and revoke a person's login sessions (lost device)
+paths:
+  /family/admin/persons:
+    get:
+      summary: List the family's persons
+      description: Open persons only unless `includeClosed` is true.
+      operationId: listPersons
+      tags: [Person]
+      parameters:
+        - { name: includeClosed, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200': { description: Persons, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Person' } } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Create a person
+      operationId: createPerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, password]
+              properties:
+                name: { type: string }
+                password: { type: string, format: password, minLength: 6, maxLength: 72, description: A short PIN is fine. }
+                isAdmin: { type: boolean, default: false, description: Family admin. }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Person' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /family/admin/persons/{personId}:
+    parameters:
+      - { name: personId, in: path, required: true, schema: { type: integer } }
+    patch:
+      summary: Update a person
+      operationId: updatePerson
+      tags: [Person]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string }
+                password: { type: string, format: password, minLength: 6, maxLength: 72, description: Resets the password and revokes the person's sessions. }
+                isAdmin: { type: boolean, description: Family admin. }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Person' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Close (soft delete) a person
+      description: |
+        Sets closed_at; history and memberships are kept. The person can no longer log in (sessions are revoked),
+        is hidden from lists and is refused on every account action. 409 if the person is the caller or the only
+        open manager of an open account (add another manager first via updateAccount).
+      operationId: deletePerson
+      tags: [Person]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /family/admin/persons/{personId}/sessions:
+    parameters:
+      - { name: personId, in: path, required: true, schema: { type: integer } }
+    get:
+      summary: List a person's sessions
+      description: |
+        The person's live sessions (expired ones are left out), newest first, so a lost device can be found.
+        Works for closed persons too (normally none are left). The token is never returned.
+      operationId: listPersonSessions
+      tags: [Sessions]
+      responses:
+        '200': { description: Sessions, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Session' } } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Revoke all of a person's sessions
+      description: |
+        Ends every session of that person at once, including sessions that never expire (login with `remember: true`).
+        The person can log in again with their password; to lock out a stolen device for good, also reset the password
+        (`updatePerson`), which revokes sessions too. An admin may revoke their own sessions, which logs them off here as well.
+        Revoking a person with no sessions is a no-op (204).
+      operationId: revokePersonSessions
+      tags: [Sessions]
+      responses:
+        '204': { description: Revoked }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /family/admin/persons/{personId}/sessions/{sessionId}:
+    parameters:
+      - { name: personId, in: path, required: true, schema: { type: integer } }
+      - { name: sessionId, in: path, required: true, schema: { type: integer } }
+    delete:
+      summary: Revoke one of a person's sessions
+      description: Ends that one session (for example the lost iPad but not the phone). 404 if the session is not that person's.
+      operationId: revokePersonSession
+      tags: [Sessions]
+      responses:
+        '204': { description: Revoked }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /family/admin/accounts:
+    get:
+      summary: List the family's accounts with their members
+      description: Open accounts only unless `includeClosed` is true.
+      operationId: listAccounts
+      tags: [Account]
+      parameters:
+        - { name: includeClosed, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200': { description: Accounts, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Account' } } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Create an account with its members
+      description: Members must include at least one `manager`.
+      operationId: createAccount
+      tags: [Account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountInput' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Account' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /family/admin/accounts/{accountId}:
+    parameters:
+      - { name: accountId, in: path, required: true, schema: { type: integer } }
+    patch:
+      summary: Update account name, daily funding and/or replace its member list
+      description: |
+        The new member list must keep at least one open `manager` (400 otherwise). Removing or demoting the
+        last open manager is also refused by the database (409). Closed accounts can't be updated (409).
+      operationId: updateAccount
+      tags: [Account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string }
+                dailyFunding: { type: integer, minimum: 0, maximum: 100000000, description: Cents deposited automatically every day at 23:59 local time (0 = off) }
+                members: { type: array, minItems: 1, items: { $ref: '#/components/schemas/Member' } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Account' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Close (soft delete) an account
+      operationId: deleteAccount
+      tags: [Account]
+      description: Sets closed_at; history is kept. Rejected while balance != 0 or requests are pending.
+      responses:
+        '204': { description: Closed }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  schemas:
+    Person:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        isAdmin: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+    Session:
+      type: object
+      required: [id, createdAt, expiresAt]
+      properties:
+        id: { type: integer }
+        device: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time, nullable: true, description: Updated at most once an hour. }
+        expiresAt: { type: string, format: date-time, nullable: true, description: null = never expires. }
+    Member:
+      type: object
+      required: [personId, role]
+      properties:
+        personId: { type: integer }
+        role: { type: string, enum: [manager, user], description: manager deposits directly and approves/rejects requests }
+    AccountInput:
+      type: object
+      required: [name, members]
+      properties:
+        name: { type: string }
+        dailyFunding: { type: integer, minimum: 0, maximum: 100000000, default: 0, description: Cents deposited automatically every day at 23:59 local time (0 = off) }
+        members: { type: array, minItems: 1, items: { $ref: '#/components/schemas/Member' } }
+    Account:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        dailyFunding: { type: integer, minimum: 0 }
+        members: { type: array, items: { $ref: '#/components/schemas/Member' } }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties:
+              message: { type: string }

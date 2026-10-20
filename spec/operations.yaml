@@ -1,0 +1,330 @@
+openapi: 3.0.3
+info:
+  title: Virtual Bank — Operations
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  description: |
+    Every route requires a token from auth.yaml. The caller is the person in the token.
+    Amounts are integer cents. Permissions come from the caller's role on the account (account_role),
+    not from person.isAdmin: account `manager` deposits and withdraws directly and approves/rejects;
+    account `user` withdraws and must request deposits. Otherwise 403.
+    Accounts with a daily funding amount (set in admin_family.yaml) are funded automatically at 23:59 in the family's time zone (set by the operator), unless a manager skipped that day (funding-skips routes).
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Account
+    description: The caller's accounts, balances and transactions (deposits / withdrawals)
+  - name: Requests
+    description: Deposit requests and their approval / rejection
+paths:
+  /accounts:
+    get:
+      summary: List the caller's accounts with balances
+      description: Open accounts only unless `includeClosed` is true. A closed account keeps its history readable but takes no new money.
+      operationId: listAccounts
+      tags: [Account]
+      parameters:
+        - { name: includeClosed, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: Accounts
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Balance' } }
+        '401': { $ref: '#/components/responses/Error' }
+  /accounts/{accountId}:
+    get:
+      summary: Account detail (balances and latest transactions)
+      description: |
+        Caller must be a member of the account (404 otherwise, so account ids are not revealed). Works for a closed
+        account too (`closedAt` is set), so its history stays readable.
+        `transactions` holds only the latest few, newest first (count set by the server);
+        use GET /accounts/{accountId}/transactions for full, paged history.
+      operationId: getAccount
+      tags: [Account]
+      parameters:
+        - $ref: '#/components/parameters/accountId'
+      responses:
+        '200':
+          description: Account
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Balance'
+                  - type: object
+                    properties:
+                      transactions: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /accounts/{accountId}/funding-skips:
+    get:
+      summary: Upcoming days on which automatic funding is skipped
+      description: From today on, soonest first. Caller must be a member (404 otherwise).
+      operationId: listFundingSkips
+      tags: [Account]
+      parameters:
+        - $ref: '#/components/parameters/accountId'
+      responses:
+        '200':
+          description: Skipped days
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/FundingSkip' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /accounts/{accountId}/funding-skips/{date}:
+    parameters:
+      - $ref: '#/components/parameters/accountId'
+      - $ref: '#/components/parameters/date'
+    put:
+      summary: Skip automatic funding for a day
+      description: |
+        Manager only (403 for a user). Idempotent; repeating the call replaces the comment. `date` must be
+        today or later in the family's time zone; today can be skipped until that family's 23:59 run (400 otherwise). A closed account can't be skipped (409).
+      operationId: skipFunding
+      tags: [Account]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { $ref: '#/components/schemas/Comment' }
+      responses:
+        '200': { description: Skipped, content: { application/json: { schema: { $ref: '#/components/schemas/FundingSkip' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Cancel a skip (funding resumes for that day)
+      description: Manager only. Same date rules as PUT.
+      operationId: unskipFunding
+      tags: [Account]
+      responses:
+        '204': { description: Removed }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /accounts/{accountId}/transactions:
+    parameters:
+      - $ref: '#/components/parameters/accountId'
+    get:
+      summary: List this account's transactions (newest first, paged)
+      description: Caller must be a member of the account (404 otherwise).
+      operationId: listTransactions
+      tags: [Account]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, pageSize, total]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  total: { type: integer, description: Total transactions on the account }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Deposit or withdraw
+      description: |
+        `deposit`: account manager only (users must create a request instead).
+        `withdrawal`: any account member; posted balance only, pending requests can't be spent.
+        A closed account takes no transactions (409).
+      operationId: createTransaction
+      tags: [Account]
+      parameters: [{ $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, amount]
+              properties:
+                type: { $ref: '#/components/schemas/TransactionType' }
+                amount: { type: integer, minimum: 1, maximum: 100000000, description: Cents }
+                comment: { $ref: '#/components/schemas/Comment' }
+      responses:
+        '200': { description: Replay of an earlier Idempotency-Key; the original, content: { application/json: { schema: { $ref: '#/components/schemas/Transaction' } } } }
+        '201': { description: Posted, content: { application/json: { schema: { $ref: '#/components/schemas/Transaction' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { description: Insufficient funds or account closed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /requests:
+    post:
+      summary: Request a deposit (any account member)
+      description: A closed account takes no requests (409).
+      operationId: createRequest
+      tags: [Requests]
+      parameters: [{ $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, amount]
+              properties:
+                accountId: { type: integer }
+                amount: { type: integer, minimum: 1, maximum: 100000000, description: Cents }
+                comment: { $ref: '#/components/schemas/Comment' }
+      responses:
+        '200': { description: Replay of an earlier Idempotency-Key; the original, content: { application/json: { schema: { $ref: '#/components/schemas/Request' } } } }
+        '201': { description: Pending, content: { application/json: { schema: { $ref: '#/components/schemas/Request' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    get:
+      summary: Requests on the caller's accounts
+      description: |
+        Returns requests on every account the caller is a member of (manager or user), newest first, paged.
+        A manager's approval queue is `?status=pending`.
+      operationId: listRequests
+      tags: [Requests]
+      parameters:
+        - { name: accountId, in: query, schema: { type: integer }, description: Only this account (404 if the caller is not a member) }
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected] }, description: Omit for all statuses }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of requests
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, pageSize, total]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Request' } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  total: { type: integer, description: Total requests matching the filters }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /requests/{requestId}/approve:
+    post:
+      summary: Approve a pending request (posts the deposit)
+      description: Manager of the request's account only. 409 if the request was already decided or the account is closed.
+      operationId: approveRequest
+      tags: [Requests]
+      parameters: [{ $ref: '#/components/parameters/requestId' }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecisionInput' }
+      responses:
+        '200': { description: Approved, content: { application/json: { schema: { $ref: '#/components/schemas/Request' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { description: Already decided or account closed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /requests/{requestId}/reject:
+    post:
+      summary: Reject a pending request
+      description: Manager of the request's account only. 409 if the request was already decided.
+      operationId: rejectRequest
+      tags: [Requests]
+      parameters: [{ $ref: '#/components/parameters/requestId' }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecisionInput' }
+      responses:
+        '200': { description: Rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Request' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { description: Already decided, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    accountId: { name: accountId, in: path, required: true, schema: { type: integer } }
+    requestId: { name: requestId, in: path, required: true, schema: { type: integer } }
+    idempotencyKey: { name: Idempotency-Key, in: header, schema: { type: string, minLength: 1, maxLength: 64 }, description: Optional. Repeating a POST with the same key by the same person returns the original result (200 instead of 201) instead of posting again. If the key was used before with other content (another account or type or amount) the call fails with 409. }
+    date: { name: date, in: path, required: true, schema: { type: string, format: date }, description: Local calendar day (YYYY-MM-DD) }
+  schemas:
+    Comment: { type: string, maxLength: 200, nullable: true, description: Optional free-text note }
+    FundingSkip:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        createdBy: { type: integer }
+        comment: { $ref: '#/components/schemas/Comment' }
+        createdAt: { type: string, format: date-time }
+    Balance:
+      type: object
+      properties:
+        accountId: { type: integer }
+        name: { type: string }
+        closedAt: { type: string, format: date-time, nullable: true, description: Set when the account is closed }
+        role: { type: string, enum: [manager, user], description: The person's role on this account }
+        balance: { type: integer, description: Posted cents }
+        pending: { type: integer, description: Cents awaiting approval }
+        total: { type: integer, description: balance + pending }
+        dailyFunding: { type: integer, description: Automatic daily deposit in cents (0 = off) }
+        skippedToday: { type: boolean, description: A manager skipped today's automatic funding }
+    TransactionType:
+      type: string
+      enum: [deposit, withdrawal]
+    Transaction:
+      type: object
+      properties:
+        id: { type: integer }
+        accountId: { type: integer }
+        personId: { type: integer, nullable: true, description: Null for automatic daily funding }
+        type: { $ref: '#/components/schemas/TransactionType' }
+        amount: { type: integer, minimum: 1, maximum: 100000000, description: Cents (always positive; direction comes from type) }
+        requestId: { type: integer, nullable: true }
+        fundingDate: { type: string, format: date, nullable: true, description: Local day funded (automatic funding only) }
+        comment: { $ref: '#/components/schemas/Comment', description: Note given when posted; an approved deposit copies the requester's comment }
+        createdAt: { type: string, format: date-time }
+    DecisionInput:
+      type: object
+      properties:
+        comment: { $ref: '#/components/schemas/Comment' }
+    Request:
+      type: object
+      properties:
+        id: { type: integer }
+        accountId: { type: integer }
+        amount: { type: integer }
+        status: { type: string, enum: [pending, approved, rejected] }
+        requestedBy: { type: integer }
+        requesterComment: { $ref: '#/components/schemas/Comment' }
+        decidedBy: { type: integer, nullable: true }
+        deciderComment: { $ref: '#/components/schemas/Comment' }
+        requestedAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time, nullable: true }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

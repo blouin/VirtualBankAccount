@@ -1,0 +1,226 @@
+name: Deploy Code and Infrastructure
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - 'apply'
+          - 'plan'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write  # Required for AWS OIDC authentication
+  contents: read   # Required for actions/checkout
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ca-central-1' }}
+  NODE_VERSION: '22'
+  TF_VERSION: 'latest'
+
+jobs:
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/backend/go.mod
+          cache-dependency-path: src/backend/go.sum
+
+      - name: Run Go tests
+        working-directory: src/backend
+        run: go test -v -p 1 ./...
+
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Generate API types
+        working-directory: src/frontend
+        run: npm run gen
+
+      - name: Run Vitest test suite
+        working-directory: src/frontend
+        run: npm test
+
+      - name: Test frontend build
+        working-directory: src/frontend
+        run: npm run build
+
+  deploy:
+    name: Deploy Infra & Code
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/backend/go.mod
+          cache-dependency-path: src/backend/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (OIDC Role)
+        if: ${{ secrets.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials (Access Keys)
+        if: ${{ secrets.AWS_ROLE_TO_ASSUME == '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build Lambda backend package
+        run: |
+          mkdir -p iac/.build/pkg/migrations
+          cd src/backend
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -ldflags '-s -w' -o ../../iac/.build/pkg/bootstrap ./cmd/lambda
+          cd ../..
+          cp db/*.sql iac/.build/pkg/migrations/
+          chmod +x iac/.build/pkg/bootstrap
+
+      - name: Build Frontend SPA
+        working-directory: src/frontend
+        run: |
+          npm ci
+          npm run gen
+          npm run build
+
+      - name: Terraform Init & Validate
+        working-directory: iac
+        run: |
+          terraform init
+          terraform validate
+
+      - name: Terraform Plan (Dry Run)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'plan'
+        working-directory: iac
+        run: |
+          terraform plan -no-color | tee plan_output.txt
+          {
+            echo "### 📋 Terraform Plan"
+            echo '```hcl'
+            cat plan_output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+        working-directory: iac
+        run: terraform apply -auto-approve
+
+      - name: Deploy Frontend to S3 and Invalidate CloudFront
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+        run: |
+          cd iac
+          SPA_BUCKET=$(terraform output -raw spa_bucket)
+          APP_URL=$(terraform output -raw url)
+          FUNCTION_URL=$(terraform output -raw function_url)
+          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || true)
+          cd ..
+
+          echo "Deploying SPA to ${SPA_BUCKET} for ${APP_URL}..."
+
+          # Extract domain hostname from URL
+          DOMAIN=$(echo "${APP_URL}" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+
+          # 1. Sync hashed static assets with immutable 1-year cache
+          aws s3 sync src/frontend/dist "s3://${SPA_BUCKET}" \
+            --delete \
+            --exclude "index.html" \
+            --exclude "sw.js" \
+            --exclude "workbox-*.js" \
+            --exclude "manifest.webmanifest" \
+            --cache-control "public,max-age=31536000,immutable"
+
+          # 2. Upload unhashed entry points with no-cache so browsers always fetch the latest version
+          aws s3 cp src/frontend/dist/index.html "s3://${SPA_BUCKET}/index.html" --cache-control "no-cache"
+          aws s3 cp src/frontend/dist/manifest.webmanifest "s3://${SPA_BUCKET}/manifest.webmanifest" --cache-control "no-cache"
+          aws s3 cp src/frontend/dist/sw.js "s3://${SPA_BUCKET}/sw.js" --cache-control "no-cache"
+
+          # 3. Upload workbox scripts with immutable cache
+          for f in src/frontend/dist/workbox-*.js; do
+            if [ -f "$f" ]; then
+              aws s3 cp "$f" "s3://${SPA_BUCKET}/$(basename "$f")" --cache-control "public,max-age=31536000,immutable"
+            fi
+          done
+
+          # 4. Resolve CloudFront distribution ID if needed
+          if [ -z "$CLOUDFRONT_ID" ] || [ "$CLOUDFRONT_ID" = "None" ]; then
+            CLOUDFRONT_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='${DOMAIN}'].Id | [0]" --output text)
+          fi
+
+          # 5. Invalidate CloudFront cache for HTML, service worker and manifest
+          if [ -n "$CLOUDFRONT_ID" ] && [ "$CLOUDFRONT_ID" != "None" ]; then
+            echo "Invalidating CloudFront distribution ${CLOUDFRONT_ID}..."
+            aws cloudfront create-invalidation \
+              --distribution-id "${CLOUDFRONT_ID}" \
+              --paths "/index.html" "/sw.js" "/manifest.webmanifest"
+          fi
+
+          # 6. Add Deployment Summary to GitHub Actions Step Summary
+          {
+            echo "## 🚀 Deployment Successful!"
+            echo ""
+            echo "| Resource | Value |"
+            echo "|---|---|"
+            echo "| **App URL** | [${APP_URL}](${APP_URL}) |"
+            echo "| **SPA S3 Bucket** | \`${SPA_BUCKET}\` |"
+            echo "| **CloudFront Distribution** | \`${CLOUDFRONT_ID}\` |"
+            echo "| **Lambda Function URL** | \`${FUNCTION_URL}\` |"
+            echo "| **AWS Region** | \`${AWS_REGION}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

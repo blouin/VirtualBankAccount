@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1000" font-family="Segoe UI, Arial" font-size="12">
+<defs><marker id="a" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0L10,5L0,10z"/></marker></defs>
+<rect width="100%" height="100%" fill="white"/>
+<rect x="40" y="40" width="230" height="128" fill="#fff" stroke="#333"/>
+<rect x="40" y="40" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="155.0" y="59" text-anchor="middle" font-weight="bold" font-size="14">account</text>
+<text x="48" y="83">PK id, FK family_id</text>
+<text x="48" y="103">name</text>
+<text x="48" y="123">daily_funding (cents, 0 = off)</text>
+<text x="48" y="143">created_at</text>
+<text x="48" y="163">closed_at (soft delete)</text>
+<rect x="330" y="40" width="230" height="108" fill="#fff" stroke="#333"/>
+<rect x="330" y="40" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="445.0" y="59" text-anchor="middle" font-weight="bold" font-size="14">account_role</text>
+<text x="338" y="83">PK,FK account_id</text>
+<text x="338" y="103">PK,FK person_id</text>
+<text x="338" y="123">role: manager | user</text>
+<text x="338" y="143">FK family_id (composite FKs)</text>
+<rect x="620" y="40" width="230" height="148" fill="#fff" stroke="#333"/>
+<rect x="620" y="40" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="735.0" y="59" text-anchor="middle" font-weight="bold" font-size="14">person</text>
+<text x="628" y="83">PK id, FK family_id</text>
+<text x="628" y="103">name (unique per family)</text>
+<text x="628" y="123">password_hash</text>
+<text x="628" y="143">is_admin (this family)</text>
+<text x="628" y="163">created_at</text>
+<text x="628" y="183">closed_at (soft delete)</text>
+<rect x="40" y="220" width="230" height="208" fill="#fff" stroke="#333"/>
+<rect x="40" y="220" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="155.0" y="239" text-anchor="middle" font-weight="bold" font-size="14">account_transaction</text>
+<text x="48" y="263">PK id</text>
+<text x="48" y="283">FK account_id</text>
+<text x="48" y="303">FK person_id (null = auto-fund)</text>
+<text x="48" y="323">type: deposit | withdrawal</text>
+<text x="48" y="343">amount (cents, &gt; 0)</text>
+<text x="48" y="363">FK request_id (unique)</text>
+<text x="48" y="383">funding_date (unique/account)</text>
+<text x="48" y="403">idempotency_key</text>
+<text x="48" y="423">created_at</text>
+<rect x="330" y="220" width="230" height="248" fill="#fff" stroke="#333"/>
+<rect x="330" y="220" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="445.0" y="239" text-anchor="middle" font-weight="bold" font-size="14">transaction_request</text>
+<text x="338" y="263">PK id</text>
+<text x="338" y="283">FK account_id</text>
+<text x="338" y="303">amount (cents, > 0)</text>
+<text x="338" y="323">status: pending|approved|rejected</text>
+<text x="338" y="343">FK requested_by</text>
+<text x="338" y="363">FK decided_by</text>
+<text x="338" y="383">requested_at</text>
+<text x="338" y="403">decided_at</text>
+<text x="338" y="423">requester_comment</text>
+<text x="338" y="443">decider_comment</text>
+<text x="338" y="463">idempotency_key</text>
+<rect x="620" y="220" width="230" height="128" fill="#fff" stroke="#333"/>
+<rect x="620" y="220" width="230" height="28" fill="#fce5cd" stroke="#333"/>
+<text x="735.0" y="239" text-anchor="middle" font-weight="bold" font-size="14">session</text>
+<text x="628" y="263">PK id, token_hash (SHA-256)</text>
+<text x="628" y="283">FK person_id, device</text>
+<text x="628" y="303">created_at, last_used_at</text>
+<text x="628" y="323">expires_at (NULL = never)</text>
+<rect x="40" y="440" width="230" height="128" fill="#f4f4f4" stroke="#333" stroke-dasharray="5,3"/>
+<rect x="40" y="440" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="155.0" y="459" text-anchor="middle" font-weight="bold" font-size="14">VIEW account_balance</text>
+<text x="48" y="483">account_id</text>
+<text x="48" y="503">name</text>
+<text x="48" y="523">balance (posted)</text>
+<text x="48" y="543">pending (requests)</text>
+<text x="48" y="563">total = balance + pending</text>
+<polyline points="330,82 270,82" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="560,102 590,102 590,82 620,82" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="155,220 155,168" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="330,282 310,282 310,190 230,190 230,168" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="270,362 330,262" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="270,302 290,302 290,205 600,205 600,130 620,130" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="560,342 580,342 580,196 700,196 700,188" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="560,362 610,362 610,208 760,208 760,188" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="735,220 735,188" fill="none" stroke="#555" marker-end="url(#a)"/>
+<rect x="330" y="480" width="230" height="128" fill="#fff" stroke="#333"/>
+<rect x="330" y="480" width="230" height="28" fill="#cfe2f3" stroke="#333"/>
+<text x="445.0" y="499" text-anchor="middle" font-weight="bold" font-size="14">funding_skip</text>
+<text x="338" y="523">PK,FK account_id</text>
+<text x="338" y="543">PK skip_date (YYYY-MM-DD)</text>
+<text x="338" y="563">FK created_by (manager)</text>
+<text x="338" y="583">comment (reason)</text>
+<text x="338" y="603">created_at</text>
+<polyline points="330,522 282,522 282,150 270,150" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="560,560 572,560 572,150 620,150" fill="none" stroke="#555" marker-end="url(#a)"/>
+<rect x="620" y="360" width="230" height="148" fill="#fff" stroke="#333"/>
+<rect x="620" y="360" width="230" height="28" fill="#fce5cd" stroke="#333"/>
+<text x="735.0" y="379" text-anchor="middle" font-weight="bold" font-size="14">login_attempt</text>
+<text x="628" y="403">PK id</text>
+<text x="628" y="423">FK person_id (nullable)</text>
+<text x="628" y="443">FK operator_id (nullable)</text>
+<text x="628" y="463">ip</text>
+<text x="628" y="483">succeeded (0|1)</text>
+<text x="628" y="503">attempted_at</text>
+<polyline points="850,418 870,418 870,94 850,94" fill="none" stroke="#555" marker-end="url(#a)"/>
+<rect x="620" y="520" width="230" height="128" fill="#f4f4f4" stroke="#333" stroke-dasharray="5,3"/>
+<rect x="620" y="520" width="230" height="28" fill="#fce5cd" stroke="#333"/>
+<text x="735.0" y="539" text-anchor="middle" font-weight="bold" font-size="14">VIEW login_failures_15m</text>
+<text x="628" y="563">kind: person | operator | ip</text>
+<text x="628" y="583">key (id or ip)</text>
+<text x="628" y="603">failures (last 15 min)</text>
+<text x="628" y="623">oldest</text>
+<text x="628" y="641" fill="#555" font-size="10">from login_attempt, succeeded = 0</text>
+<polyline points="735,520 735,508" fill="none" stroke="#555" marker-end="url(#a)"/>
+<rect x="40" y="680" width="230" height="148" fill="#fff" stroke="#333"/>
+<rect x="40" y="680" width="230" height="28" fill="#d9ead3" stroke="#333"/>
+<text x="155.0" y="699" text-anchor="middle" font-weight="bold" font-size="14">family (tenant)</text>
+<text x="48" y="723">PK id</text>
+<text x="48" y="743">name</text>
+<text x="48" y="763">code (unique, typed at login)</text>
+<text x="48" y="783">timezone (IANA, daily funding)</text>
+<text x="48" y="803">created_at</text>
+<text x="48" y="823">closed_at (soft delete)</text>
+<rect x="330" y="680" width="230" height="108" fill="#fff" stroke="#333"/>
+<rect x="330" y="680" width="230" height="28" fill="#fce5cd" stroke="#333"/>
+<text x="445.0" y="699" text-anchor="middle" font-weight="bold" font-size="14">operator</text>
+<text x="338" y="723">PK id</text>
+<text x="338" y="743">name (unique)</text>
+<text x="338" y="763">password_hash</text>
+<text x="338" y="783">created_at</text>
+<rect x="620" y="680" width="230" height="108" fill="#fff" stroke="#333"/>
+<rect x="620" y="680" width="230" height="28" fill="#fce5cd" stroke="#333"/>
+<text x="735.0" y="699" text-anchor="middle" font-weight="bold" font-size="14">operator_session</text>
+<text x="628" y="723">PK token</text>
+<text x="628" y="743">FK operator_id</text>
+<text x="628" y="763">created_at</text>
+<text x="628" y="783">expires_at</text>
+<polyline points="620,740 560,740" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="40,110 20,110 20,710 40,710" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="40,520 30,520 30,140 40,140" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="850,115 888,115 888,842 155,842 155,828" fill="none" stroke="#555" marker-end="url(#a)"/>
+<polyline points="620,495 600,495 600,660 500,660 500,680" fill="none" stroke="#555" marker-end="url(#a)"/>
+<text x="40" y="850" fill="#555">Arrows = FK (many -&gt; one). account_role has no direct arrow to family: its composite FKs (account_id, family_id)</text>
+<text x="40" y="868" fill="#555">and (person_id, family_id) point at account and person and keep both in the same family. Triggers: manager-only deposit /</text>
+<text x="40" y="886" fill="#555">approve / reject / skip a funding day; withdraw / request = any member; no overdraft; request decided once; approval</text>
+<text x="40" y="904" fill="#555">inserts a deposit; an open account keeps 1 open manager; a closed account or family takes no transaction / request / skip / login.</text>
+<text x="40" y="922" fill="#555">Rate limit: login_failures_15m view. Hourly job: for each family whose local time is 23:xx, a deposit with person_id NULL</text>
+<text x="40" y="940" fill="#555">+ funding_date for each open account (of an open family) with daily_funding &gt; 0 and no funding_skip row that day; at most one per day.</text>
+<rect x="40" y="960" width="14" height="14" fill="#cfe2f3" stroke="#333"/><text x="60" y="972">money</text>
+<rect x="130" y="960" width="14" height="14" fill="#fce5cd" stroke="#333"/><text x="150" y="972">sessions, login and operator</text>
+<rect x="340" y="960" width="14" height="14" fill="#d9ead3" stroke="#333"/><text x="360" y="972">tenant</text>
+</svg>

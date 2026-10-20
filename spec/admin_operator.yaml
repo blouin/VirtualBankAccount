@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: Virtual Bank — Platform Admin
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  description: |
+    Platform operator ("admin of admins"): creates families and their first admin. Operators have their own
+    login and token (not interchangeable with auth.yaml tokens) and see no accounts, balances or transactions.
+    Login is rate limited like auth.yaml: more than 5 failed attempts per operator or 20 per client IP
+    within 15 minutes returns 429 with `Retry-After`.
+    Operators are created out of band (SQL or a migration), never through the API.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Session
+    description: Operator login and logoff
+  - name: Family
+    description: Create and manage families
+paths:
+  /admin/login:
+    post:
+      summary: Operator login
+      operationId: operatorLogin
+      tags: [Session]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, password]
+              properties:
+                name: { type: string }
+                password: { type: string, format: password, maxLength: 72 }
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expiresAt]
+                properties:
+                  token: { type: string }
+                  expiresAt: { type: string, format: date-time, description: 'One hour after login, fixed and not extended by use' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /admin/logoff:
+    post:
+      summary: Invalidate the current operator token
+      operationId: operatorLogoff
+      tags: [Session]
+      responses:
+        '204': { description: Logged off }
+        '401': { $ref: '#/components/responses/Error' }
+  /admin/families:
+    get:
+      summary: List families
+      description: Open families only unless `includeClosed` is true.
+      operationId: listFamilies
+      tags: [Family]
+      parameters:
+        - { name: includeClosed, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: Families
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Family' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Create a family together with its first admin
+      description: Both are created in one transaction. The admin can then log in with auth.yaml and manage the family.
+      operationId: createFamily
+      tags: [Family]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, code, admin]
+              properties:
+                name: { type: string }
+                code: { type: string, minLength: 4, description: Unique; what family members type at login. }
+                timezone: { type: string, default: America/Toronto, example: America/Toronto, description: IANA time zone name (400 if unknown). Daily funding closes the day at 23:59 here. }
+                admin:
+                  type: object
+                  required: [name, password]
+                  properties:
+                    name: { type: string }
+                    password: { type: string, format: password, minLength: 8, maxLength: 72 }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Family' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /admin/families/{familyId}:
+    parameters:
+      - { name: familyId, in: path, required: true, schema: { type: integer } }
+    patch:
+      summary: Rename a family, change its code or time zone, or reopen it
+      description: |
+        `closed: false` reopens a closed family (members can log in again). Closing is DELETE. Everything else works
+        on closed families too.
+      operationId: updateFamily
+      tags: [Family]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string }
+                code: { type: string, minLength: 4 }
+                timezone: { type: string, description: IANA time zone name (400 if unknown). }
+                closed: { type: boolean, enum: [false], description: Only false is accepted (reopen). }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Family' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Close (soft delete) a family
+      description: |
+        Sets closed_at. Nothing is deleted and no zero balance is required: the money is frozen and stays readable
+        by the operator-run recovery tasks and after a reopen. All of the family's sessions are revoked, its members
+        can't log in (401), it is left out of `GET /auth/persons` (empty list) and daily funding skips it.
+        The family code stays reserved. Closing an already closed family is a no-op (204).
+      operationId: closeFamily
+      tags: [Family]
+      responses:
+        '204': { description: Closed }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /admin/families/{familyId}/admins/{personId}/password:
+    parameters:
+      - { name: familyId, in: path, required: true, schema: { type: integer } }
+      - { name: personId, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Reset a family admin's password (recovery)
+      description: |
+        For a family whose admin forgot the password. The person must be an open admin of that family (404 otherwise).
+        Revokes all of that person's sessions. Operators can't read or set anything else about a family's people.
+      operationId: resetFamilyAdminPassword
+      tags: [Family]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password, minLength: 8, maxLength: 72 }
+      responses:
+        '204': { description: Password reset }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    Family:
+      type: object
+      required: [id, name, code, timezone, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        code: { type: string }
+        timezone: { type: string }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Too many failed attempts
+      headers:
+        Retry-After:
+          description: Seconds until the oldest failure leaves the 15-minute window
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

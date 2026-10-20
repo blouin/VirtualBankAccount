@@ -1,0 +1,197 @@
+openapi: 3.0.3
+info:
+  title: Virtual Bank — Auth
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  description: |
+    Login, logoff and change password.
+    Everyone must log in to get a token. Every login names the family (`familyCode`), which the token then
+    carries: all other routes are scoped to that family and never accept a family id.
+    Everyone sends a password (a short PIN is fine: minimum 6 characters).
+    A family member's token lasts 7 days from login (fixed, not extended by use), unless login sends `remember: true`: then the
+    session never expires and lasts until it is revoked (logoff, `DELETE /auth/sessions/{id}`, a password change or reset,
+    or the person or family being closed). Operator tokens always last 1 hour.
+    A family-admin token (isAdmin) passes authorization for all admin_family.yaml routes of its own family.
+    Platform operators log in separately (admin_operator.yaml).
+    Account operations in operations.yaml require the caller's role on that account (`manager` or `user`).
+
+    Rate limiting (login and change password): more than 5 failed attempts per personId or 20 per client IP
+    within 15 minutes returns 429 with `Retry-After`. An unknown familyCode or personId counts against the IP.
+    The returned token goes in `Authorization: Bearer <token>` on admin_family.yaml / operations.yaml routes.
+servers:
+  - url: /api/v1
+tags:
+  - name: Sessions
+    description: Log in, log off, and list or revoke your sessions
+  - name: Person
+    description: Public person list (login page) and changing own password
+paths:
+  /auth/persons:
+    get:
+      summary: List the persons of one family (public, for the login page)
+      description: |
+        No token. Returns only what the login page needs; no roles or admin flags; closed persons are omitted. An unknown or closed family
+        returns an empty list (no way to probe which codes exist).
+        Rate limited per client IP (429 with Retry-After) to slow scraping.
+      operationId: listPersons
+      tags: [Person]
+      security: []
+      parameters:
+        - { name: familyCode, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Persons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, name]
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/login:
+    post:
+      summary: Log in and get a bearer token
+      description: |
+        With `remember: true` the session has no expiry and stays until revoked (for a person's own device).
+        Without it the session lasts 7 days. `device` is an optional label shown in `GET /auth/sessions`.
+      operationId: login
+      tags: [Sessions]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [familyCode, personId, password]
+              properties:
+                familyCode: { type: string }
+                personId: { type: integer }
+                password: { type: string, format: password, maxLength: 72 }
+                remember: { type: boolean, default: false, description: 'true = the session never expires; false = 7 days.' }
+                device: { type: string, maxLength: 100, description: 'Optional label for this device, e.g. "Anna''s iPad".' }
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expiresAt, person]
+                properties:
+                  token: { type: string }
+                  expiresAt: { type: string, format: date-time, nullable: true, description: 'Seven days after login (fixed, not extended by use), or null when remember was true: the session lasts until revoked.' }
+                  person:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      name: { type: string }
+                      isAdmin: { type: boolean }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/logoff:
+    post:
+      summary: Invalidate the current token
+      operationId: logoff
+      tags: [Sessions]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Logged off }
+        '401': { $ref: '#/components/responses/Error' }
+  /auth/sessions:
+    get:
+      summary: List my sessions
+      description: |
+        The caller's own live sessions (expired ones are left out), newest first, so a lost device can be found and revoked.
+        The token itself is never returned. `current` marks the session making this call.
+      operationId: listSessions
+      tags: [Sessions]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, createdAt, expiresAt, current]
+                  properties:
+                    id: { type: integer }
+                    device: { type: string, nullable: true }
+                    createdAt: { type: string, format: date-time }
+                    lastUsedAt: { type: string, format: date-time, nullable: true, description: 'Updated at most once an hour.' }
+                    expiresAt: { type: string, format: date-time, nullable: true, description: 'null = never expires.' }
+                    current: { type: boolean }
+        '401': { $ref: '#/components/responses/Error' }
+  /auth/sessions/{sessionId}:
+    delete:
+      summary: Revoke one of my sessions
+      description: |
+        Ends that session at once (its token stops working). Only the caller's own sessions: another person's id,
+        or an unknown id, returns 404. Revoking the current session is the same as logoff.
+        A manager's way to cut off a kid's lost device is `DELETE /family/admin/persons/{personId}/sessions` in
+        admin_family.yaml (a family admin), or the `revoke-sessions` task until that is implemented
+        (docs/operator-tasks.md).
+      operationId: revokeSession
+      tags: [Sessions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '204': { description: Revoked }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /auth/changePassword:
+    put:
+      summary: Change own password
+      operationId: changePassword
+      tags: [Person]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password, maxLength: 72 }
+                newPassword: { type: string, format: password, minLength: 6, maxLength: 72 }
+      responses:
+        '204': { description: Password changed; other sessions are revoked }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Too many failed attempts
+      headers:
+        Retry-After:
+          description: Seconds until the oldest failure leaves the 15-minute window
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

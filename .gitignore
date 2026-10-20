@@ -1,0 +1,51 @@
+# Archive of old files
+_archive/
+
+# Terraform
+iac/.terraform/
+iac/.build/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+terraform.exe
+
+# Go
+src/backend/bootstrap
+*.test
+*.out
+
+# SQLite databases and migration backups
+*.db
+*.db-journal
+*.bak
+
+# Node / web
+node_modules/
+dist/
+
+# Android
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Python caches
+__pycache__/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local dev (seed payloads hold passwords)
+*.local.json
+
+# Secrets
+.env
+.env.*
