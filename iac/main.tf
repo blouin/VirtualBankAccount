@@ -240,7 +240,7 @@ resource "aws_lambda_permission" "url" {
 # ---------- S3 (SPA files, private) ----------
 
 resource "aws_s3_bucket" "spa" {
-  bucket = "${var.name}-spa-"
+  bucket = "${var.name}-spa"
 }
 
 resource "aws_s3_bucket_public_access_block" "spa" {
