@@ -11,7 +11,7 @@ Manage "virtual bank accounts" for a family: managers deposit directly, users re
 | [docs/](docs) | [Business rules](docs/business-rules.md), [operator tasks](docs/operator-tasks.md) and the schema diagram (`data-model.svg`) |
 | [src/backend/](src/backend) | Go: `cmd/lambda` (Lambda wiring), `cmd/local` (local dev server), `api` (web routes), `jobs` (scheduled tasks), `data` (SQL queries, migrations, etc.) |
 | [src/frontend/](src/frontend) | The web app (installable PWA): Vite, React, TypeScript, Mantine. See [Web app](#web-app) |
-| [iac/](iac) | Terraform for AWS (`ca-central-1`) and the architecture diagram (`aws-architecture.drawio`) |
+| [iac/](iac) | Terraform for AWS (`ca-central-1`) |
 
 Planned: `src/android`.
 
