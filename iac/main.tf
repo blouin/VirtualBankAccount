@@ -157,7 +157,7 @@ resource "aws_lambda_function" "api" {
   memory_size      = 512 # bcrypt is CPU-bound; Lambda CPU scales with memory
   timeout          = 10
   # One writer at a time: SQLite locking over EFS (NFS) is the weakest part of this design, so don't allow two.
-  reserved_concurrent_executions = 1
+  #reserved_concurrent_executions = 1
 
   vpc_config {
     subnet_ids         = aws_subnet.private[*].id
