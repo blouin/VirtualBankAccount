@@ -31,13 +31,13 @@ export function Login() {
 
   const login = useMutation({
     mutationFn: () =>
-      api<{ token: string; person: Person }>('POST', '/auth/login', {
+      api<{ token: string; person: Person; familyName?: string }>('POST', '/auth/login', {
         auth: false,
         body: { familyCode: family, personId, password, remember, device: deviceLabel() },
       }),
     onSuccess: (r) => {
       localStorage.setItem(FAMILY_KEY, family)
-      start({ token: r.token, person: r.person, familyCode: family } satisfies Session)
+      start({ token: r.token, person: r.person, familyCode: family, familyName: r.familyName } satisfies Session)
     },
   })
 
