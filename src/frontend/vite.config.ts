@@ -8,9 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Family Bank',
-        short_name: 'Bank',
-        description: 'Virtual family bank accounts',
+        name: 'Pocket Money',
+        short_name: 'Pocket Money',
+        description: 'Virtual bank accounts used for pocket money',
         theme_color: '#242424',
         background_color: '#242424',
         display: 'standalone',

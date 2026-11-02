@@ -2,7 +2,7 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
 const en = {
-  appName: 'Family Bank',
+  appName: 'Pocket Money',
   nav: { accounts: 'Accounts', requests: 'Requests', settings: 'Settings' },
   common: { cancel: 'Cancel', send: 'Send', close: 'Close', loadMore: 'Load more', loading: 'Loading…', error: 'Something went wrong' },
   login: {
@@ -39,7 +39,7 @@ const en = {
 }
 
 const fr: typeof en = {
-  appName: 'Banque familiale',
+  appName: 'Pocket Money',
   nav: { accounts: 'Comptes', requests: 'Demandes', settings: 'Réglages' },
   common: { cancel: 'Annuler', send: 'Envoyer', close: 'Fermer', loadMore: 'Voir plus', loading: 'Chargement…', error: 'Une erreur est survenue' },
   login: {

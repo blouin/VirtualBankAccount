@@ -1,4 +1,4 @@
-# Virtual Bank Accounts
+# Pocket Money App
 
 Manage "virtual bank accounts" for a family: managers deposit directly, users request deposits that a manager approves or rejects, and everyone can view balances and withdraw.
 
