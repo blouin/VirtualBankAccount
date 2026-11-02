@@ -78,11 +78,11 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) error {
 	}
 	ctx, ip := r.Context(), r.RemoteAddr
 
-	var name, hash string
+	var name, hash, familyName string
 	var isAdmin bool
 	err := s.db.QueryRowContext(ctx, `
-SELECT p.name, p.password_hash, p.is_admin FROM person p JOIN family f ON f.id = p.family_id
-WHERE f.code = ? AND p.id = ? AND p.closed_at IS NULL AND f.closed_at IS NULL`, in.FamilyCode, in.PersonID).Scan(&name, &hash, &isAdmin)
+SELECT p.name, p.password_hash, p.is_admin, f.name FROM person p JOIN family f ON f.id = p.family_id
+WHERE f.code = ? AND p.id = ? AND p.closed_at IS NULL AND f.closed_at IS NULL`, in.FamilyCode, in.PersonID).Scan(&name, &hash, &isAdmin, &familyName)
 	known := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -124,9 +124,10 @@ VALUES (?, ?, ?, CASE WHEN ? THEN NULL ELSE datetime('now', '+' || ? || ' days')
 		return err
 	}
 	writeJSON(w, 200, map[string]any{
-		"token":     tok,
-		"expiresAt": tsp(expires),
-		"person":    map[string]any{"id": pid, "name": name, "isAdmin": isAdmin},
+		"token":      tok,
+		"expiresAt":  tsp(expires),
+		"person":     map[string]any{"id": pid, "name": name, "isAdmin": isAdmin},
+		"familyName": familyName,
 	})
 	return nil
 }

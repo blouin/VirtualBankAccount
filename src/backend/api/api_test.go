@@ -77,6 +77,9 @@ func (c *client) login(person int, remember bool) map[string]any {
 		c.t.Fatal(st, b)
 	}
 	c.tok = m["token"].(string)
+	if m["familyName"] != "A" {
+		c.t.Fatalf("familyName = %v, want A", m["familyName"])
+	}
 	return m
 }
 

@@ -5,7 +5,7 @@ export type Transaction = Ops['schemas']['Transaction']
 export type FundingRequest = Ops['schemas']['Request']
 export type Page<T> = { items: T[]; page: number; pageSize: number; total: number }
 export type Person = { id: number; name: string; isAdmin?: boolean }
-export type Session = { token: string; person: Person; familyCode: string }
+export type Session = { token: string; person: Person; familyCode: string; familyName?: string }
 export type DeviceSession = {
   id: number
   device?: string | null

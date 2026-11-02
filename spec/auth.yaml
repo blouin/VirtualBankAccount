@@ -83,7 +83,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [token, expiresAt, person]
+                required: [token, expiresAt, person, familyName]
                 properties:
                   token: { type: string }
                   expiresAt: { type: string, format: date-time, nullable: true, description: 'Seven days after login (fixed, not extended by use), or null when remember was true: the session lasts until revoked.' }
@@ -93,6 +93,7 @@ paths:
                       id: { type: integer }
                       name: { type: string }
                       isAdmin: { type: boolean }
+                  familyName: { type: string, description: 'Family name' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/logoff:

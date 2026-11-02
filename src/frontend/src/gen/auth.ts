@@ -232,6 +232,8 @@ export interface operations {
                             name?: string;
                             isAdmin?: boolean;
                         };
+                        /** @description Family name */
+                        familyName: string;
                     };
                 };
             };
