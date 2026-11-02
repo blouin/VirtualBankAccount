@@ -77,8 +77,47 @@ const fr: typeof en = {
 
 export const LANG_KEY = 'vbank.lang'
 
-const saved = localStorage.getItem(LANG_KEY)
-const initial = saved ?? (navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en')
+export function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'))
+  return match ? decodeURIComponent(match[3]) : null
+}
+
+export function detectInitialLanguage(): 'en' | 'fr' {
+  // 1. URL search parameter: ?lng=fr or ?lang=fr (e.g. redirected by CloudFront or shared link)
+  if (typeof window !== 'undefined' && window.location) {
+    const params = new URLSearchParams(window.location.search)
+    const urlLng = params.get('lng') || params.get('lang')
+    if (urlLng === 'fr' || urlLng === 'en') {
+      return urlLng
+    }
+  }
+
+  // 2. Saved preference in localStorage
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem(LANG_KEY)
+    if (saved === 'fr' || saved === 'en') {
+      return saved
+    }
+  }
+
+  // 3. Cookie (set by CloudFront or previous session)
+  const cookieLng = getCookie(LANG_KEY)
+  if (cookieLng === 'fr' || cookieLng === 'en') {
+    return cookieLng
+  }
+
+  // 4. Browser / navigator language
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    if (navigator.language.toLowerCase().startsWith('fr')) {
+      return 'fr'
+    }
+  }
+
+  return 'en'
+}
+
+const initial = detectInitialLanguage()
 
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, fr: { translation: fr } },
@@ -88,9 +127,21 @@ void i18n.use(initReactI18next).init({
 })
 
 export function setLang(lng: 'en' | 'fr') {
-  localStorage.setItem(LANG_KEY, lng)
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(LANG_KEY, lng)
+  }
+  if (typeof document !== 'undefined') {
+    document.cookie = `${LANG_KEY}=${lng}; path=/; max-age=31536000; samesite=lax`
+    document.documentElement.lang = lng
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    const url = new URL(window.location.href)
+    url.searchParams.set('lng', lng)
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+  }
   void i18n.changeLanguage(lng)
-  document.documentElement.lang = lng
 }
 
 export default i18n
