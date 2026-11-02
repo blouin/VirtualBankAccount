@@ -93,7 +93,7 @@ paths:
                       id: { type: integer }
                       name: { type: string }
                       isAdmin: { type: boolean }
-                  familyName: { type: string, description: 'Family name' }
+                      familyName: { type: string, description: 'Family name' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/logoff:
