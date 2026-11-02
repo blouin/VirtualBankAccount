@@ -118,12 +118,11 @@ export function Settings() {
       <Stack gap="xs">
         <Text fw={600}>{t('settings.appearance')}</Text>
         <SegmentedControl
-          value={scheme}
-          onChange={(v) => setColorScheme(v as 'light' | 'dark' | 'auto')}
+          value={scheme === 'auto' ? 'dark' : scheme}
+          onChange={(v) => setColorScheme(v as 'light' | 'dark')}
           data={[
             { value: 'light', label: t('settings.light') },
             { value: 'dark', label: t('settings.dark') },
-            { value: 'auto', label: t('settings.auto') },
           ]}
         />
       </Stack>

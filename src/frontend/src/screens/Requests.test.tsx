@@ -173,6 +173,7 @@ describe('Settings', () => {
     loggedIn()
     mockApi((m, p) => (p === '/auth/sessions' ? sessions : undefined))
     renderApp(<Settings />)
+    expect(screen.queryByText('Auto')).not.toBeInTheDocument()
     await userEvent.click(await screen.findByText('Dark'))
     expect(localStorage.getItem('mantine-color-scheme-value')).toBe('dark')
     await userEvent.click(screen.getByText('Light'))
