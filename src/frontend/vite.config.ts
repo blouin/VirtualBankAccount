@@ -25,7 +25,10 @@ export default defineConfig({
     }),
   ],
   // Same-origin like CloudFront in production, so there is no CORS in dev either.
-  server: { proxy: { '/api': { target: 'http://127.0.0.1:8080' } } },
+  server: {
+    fs: { allow: ['..', '../../iac'] },
+    proxy: { '/api': { target: 'http://127.0.0.1:8080' } },
+  },
   // Threads: forked workers time out on start behind some antivirus setups.
   test: { environment: 'jsdom', globals: true, setupFiles: ['./src/test/setup.ts'], css: false, pool: 'threads', testTimeout: 20000, hookTimeout: 20000 },
 })

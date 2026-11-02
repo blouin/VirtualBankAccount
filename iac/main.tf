@@ -278,17 +278,35 @@ data "aws_cloudfront_cache_policy" "optimized" { name = "Managed-CachingOptimize
 data "aws_cloudfront_cache_policy" "disabled" { name = "Managed-CachingDisabled" }
 data "aws_cloudfront_origin_request_policy" "all_but_host" { name = "Managed-AllViewerExceptHostHeader" }
 
-# SPA client-side routing: extension-less paths serve index.html (only on the S3 behavior, so API 404s stay 404s).
+# Pass viewer geolocation headers and language cookie to CloudFront Function without fragmenting the cache
+resource "aws_cloudfront_origin_request_policy" "spa" {
+  name    = "${var.name}-spa"
+  comment = "Pass viewer geolocation headers and language cookie to CloudFront Functions"
+  cookies_config {
+    cookie_behavior = "whitelist"
+    cookies {
+      items = ["vbank.lang"]
+    }
+  }
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = [
+        "CloudFront-Viewer-Country",
+        "CloudFront-Viewer-Country-Region",
+      ]
+    }
+  }
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+}
+
+# SPA client-side routing & Quebec/language geo-detection at edge.
 resource "aws_cloudfront_function" "spa_rewrite" {
   name    = "${var.name}-spa-rewrite"
   runtime = "cloudfront-js-2.0"
-  code    = <<-JS
-    function handler(event) {
-      var r = event.request;
-      if (!r.uri.includes('.')) r.uri = '/index.html';
-      return r;
-    }
-  JS
+  code    = file("${path.module}/spa-rewrite.js")
 }
 
 resource "aws_cloudfront_distribution" "main" {
@@ -318,11 +336,12 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "spa"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = data.aws_cloudfront_cache_policy.optimized.id
+    target_origin_id         = "spa"
+    viewer_protocol_policy   = "redirect-to-https"
+    allowed_methods          = ["GET", "HEAD"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = data.aws_cloudfront_cache_policy.optimized.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.spa.id
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.spa_rewrite.arn
