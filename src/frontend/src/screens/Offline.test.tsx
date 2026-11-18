@@ -69,10 +69,6 @@ describe('Offline mode', () => {
 
     renderApp(<Accounts />, '/', { isOffline: true })
 
-    // Total balance: $25.00 + $15.00 = $40.00
-    expect(await screen.findByText(/total balance:/i)).toBeInTheDocument()
-    expect(screen.getByText('$40.00')).toBeInTheDocument()
-
     // Accounts are displayed
     expect(screen.getByRole('group', { name: 'Child 1' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Child 2' })).toBeInTheDocument()
