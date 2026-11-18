@@ -8,6 +8,7 @@ import { MantineProvider } from '@mantine/core'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { AuthProvider } from './auth'
+import { OfflineProvider } from './offline'
 
 registerSW({ immediate: true })
 
@@ -22,7 +23,9 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={client}>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <OfflineProvider>
+              <App />
+            </OfflineProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

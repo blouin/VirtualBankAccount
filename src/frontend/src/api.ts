@@ -22,6 +22,7 @@ export class ApiError extends Error {
 }
 
 const KEY = 'vbank.session'
+const ACCOUNTS_CACHE_KEY = 'vbank.accounts.cache'
 
 export function loadSession(): Session | null {
   try {
@@ -33,6 +34,19 @@ export function loadSession(): Session | null {
 export function saveSession(s: Session | null) {
   if (s) localStorage.setItem(KEY, JSON.stringify(s))
   else localStorage.removeItem(KEY)
+}
+
+export function loadCachedAccounts(): Balance[] | null {
+  try {
+    return JSON.parse(localStorage.getItem(ACCOUNTS_CACHE_KEY) ?? 'null')
+  } catch {
+    return null
+  }
+}
+
+export function saveCachedAccounts(accounts: Balance[] | null) {
+  if (accounts) localStorage.setItem(ACCOUNTS_CACHE_KEY, JSON.stringify(accounts))
+  else localStorage.removeItem(ACCOUNTS_CACHE_KEY)
 }
 
 let onUnauthorized: () => void = () => {}

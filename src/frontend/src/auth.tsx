@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { api, loadSession, saveSession, setUnauthorizedHandler, type Session } from './api'
+import { api, loadSession, saveCachedAccounts, saveSession, setUnauthorizedHandler, type Session } from './api'
 
 type Auth = { session: Session | null; start: (s: Session) => void; end: (callApi?: boolean) => Promise<void> }
 const Ctx = createContext<Auth>(null as never)
@@ -13,6 +13,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Auth>(() => {
     const clear = () => {
       saveSession(null)
+      saveCachedAccounts(null)
       setSession(null)
       qc.clear()
     }
