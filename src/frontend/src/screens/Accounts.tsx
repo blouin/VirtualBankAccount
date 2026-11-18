@@ -28,18 +28,11 @@ export function Accounts() {
   })
 
   const accounts = q.data ?? []
-  const totalBalance = accounts.reduce((acc, a) => acc + (a.balance ?? 0), 0)
 
   return (
     <Stack>
       <Group justify="space-between" align="baseline">
         <Title order={2}>{session?.familyName ?? t('accounts.title')}</Title>
-        {accounts.length > 0 && (
-          <Group gap="xs" align="baseline">
-            <Text size="sm" c="dimmed">{t('accounts.totalBalance')}:</Text>
-            <Text size="lg" fw={700}>{formatCents(totalBalance)}</Text>
-          </Group>
-        )}
       </Group>
 
       {q.isPending && !cached && <Loader />}

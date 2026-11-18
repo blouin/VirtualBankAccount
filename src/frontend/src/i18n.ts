@@ -23,7 +23,6 @@ const en = {
   accounts: {
     title: 'Accounts', empty: 'No accounts yet.', pending: '+ {{amount}} pending',
     closed: 'Closed',
-    totalBalance: 'Total balance',
     offlineNoData: 'No cached accounts available. Connect to the internet to load your accounts.',
   },
   funding: {
@@ -74,11 +73,10 @@ const fr: typeof en = {
   accounts: {
     title: 'Comptes', empty: 'Aucun compte pour le moment.', pending: '+ {{amount}} en attente',
     closed: 'Fermé',
-    totalBalance: 'Solde total',
     offlineNoData: 'Aucun compte en cache disponible. Connectez-vous à Internet pour charger vos comptes.',
   },
   funding: {
-    fundedToday: 'Alimenté aujourd’hui', skippedToday: 'Suspendu aujourd’hui',
+    fundedToday: 'Allocation versée', skippedToday: 'Allocation non versée',
     turnOff: 'Désactiver aujourd’hui', turnOn: 'Activer aujourd’hui',
   },
   yes: 'Oui', no: 'Non',
