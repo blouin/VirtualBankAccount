@@ -4,7 +4,17 @@ import { initReactI18next } from 'react-i18next'
 const en = {
   appName: 'Pocket Money',
   nav: { accounts: 'Accounts', requests: 'Requests', settings: 'Settings' },
-  common: { cancel: 'Cancel', send: 'Send', close: 'Close', loadMore: 'Load more', loading: 'Loading…', error: 'Something went wrong' },
+  common: {
+    cancel: 'Cancel',
+    send: 'Send',
+    close: 'Close',
+    loadMore: 'Load more',
+    loading: 'Loading…',
+    error: 'Something went wrong',
+    offline: 'Offline',
+    offlineBanner: 'Offline mode — showing latest available balances',
+    unavailableOffline: 'Unavailable in offline mode',
+  },
   login: {
     familyCode: 'Family code', go: 'Go', who: 'Who are you?', noPersons: 'No one found for this family code.',
     password: 'Password', remember: 'Keep me logged in', logIn: 'Log in', change: 'Change family',
@@ -13,6 +23,8 @@ const en = {
   accounts: {
     title: 'Accounts', empty: 'No accounts yet.', pending: '+ {{amount}} pending',
     closed: 'Closed',
+    totalBalance: 'Total balance',
+    offlineNoData: 'No cached accounts available. Connect to the internet to load your accounts.',
   },
   funding: {
     fundedToday: 'Funded today', skippedToday: 'Skipped today',
@@ -29,19 +41,31 @@ const en = {
     title: 'Requests', pending: 'Pending', all: 'All', approve: 'Approve', reject: 'Reject', none: 'No requests.',
     approved: 'Approved', rejected: 'Rejected', status: { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' },
     rejectTitle: 'Reject request', approveTitle: 'Approve request', approveWithComment: 'Approve with comment…', moreApprove: 'More approve options', reason: 'Comment (optional)', requestedBy: 'Requested by {{name}} on {{date}}', requesterComment: 'Requester comment: {{comment}}', approverComment: 'Approver comment: {{comment}}',
+    unavailableOffline: 'Requests are unavailable in offline mode. Connect to the internet to view or manage requests.',
   },
   settings: {
     title: 'Settings', connected: 'Connected:', dangerZone: 'Danger zone', dangerHint: 'Password and signed-in devices', language: 'Language', appearance: 'Appearance', light: 'Light', dark: 'Dark', auto: 'Auto', changePassword: 'Change password', current: 'Current password',
     next: 'New password (6 to 72 characters)', save: 'Save', passwordChanged: 'Password changed. Other devices were logged off.',
     devices: 'Devices', thisDevice: 'this device', revoke: 'Revoke', neverExpires: 'Stays logged in until revoked',
     expires: 'Expires {{date}}', logOff: 'Log off', unknownDevice: 'Unknown device',
+    dangerZoneOffline: 'Password change and session management are unavailable in offline mode.',
   },
 }
 
 const fr: typeof en = {
   appName: 'Pocket Money',
   nav: { accounts: 'Comptes', requests: 'Demandes', settings: 'Réglages' },
-  common: { cancel: 'Annuler', send: 'Envoyer', close: 'Fermer', loadMore: 'Voir plus', loading: 'Chargement…', error: 'Une erreur est survenue' },
+  common: {
+    cancel: 'Annuler',
+    send: 'Envoyer',
+    close: 'Fermer',
+    loadMore: 'Voir plus',
+    loading: 'Chargement…',
+    error: 'Une erreur est survenue',
+    offline: 'Hors ligne',
+    offlineBanner: 'Mode hors ligne — affichage des derniers soldes disponibles',
+    unavailableOffline: 'Indisponible en mode hors ligne',
+  },
   login: {
     familyCode: 'Code de famille', go: 'OK', who: 'Qui êtes-vous ?', noPersons: 'Personne trouvé pour ce code de famille.',
     password: 'Mot de passe', remember: 'Rester connecté', logIn: 'Se connecter', change: 'Changer de famille',
@@ -50,6 +74,8 @@ const fr: typeof en = {
   accounts: {
     title: 'Comptes', empty: 'Aucun compte pour le moment.', pending: '+ {{amount}} en attente',
     closed: 'Fermé',
+    totalBalance: 'Solde total',
+    offlineNoData: 'Aucun compte en cache disponible. Connectez-vous à Internet pour charger vos comptes.',
   },
   funding: {
     fundedToday: 'Alimenté aujourd’hui', skippedToday: 'Suspendu aujourd’hui',
@@ -66,12 +92,14 @@ const fr: typeof en = {
     title: 'Demandes', pending: 'En attente', all: 'Toutes', approve: 'Approuver', reject: 'Refuser', none: 'Aucune demande.',
     approved: 'Approuvée', rejected: 'Refusée', status: { pending: 'En attente', approved: 'Approuvée', rejected: 'Refusée' },
     rejectTitle: 'Refuser la demande', approveTitle: 'Approuver la demande', approveWithComment: 'Approuver avec un commentaire…', moreApprove: 'Plus d’options d’approbation', reason: 'Commentaire (facultatif)', requestedBy: 'Demandé par {{name}} le {{date}}', requesterComment: 'Commentaire du demandeur : {{comment}}', approverComment: 'Commentaire de l’approbateur : {{comment}}',
+    unavailableOffline: 'Les demandes ne sont pas disponibles en mode hors ligne. Connectez-vous à Internet pour voir ou gérer les demandes.',
   },
   settings: {
     title: 'Réglages', connected: 'Connecté :', dangerZone: 'Zone sensible', dangerHint: 'Mot de passe et appareils connectés', language: 'Langue', appearance: 'Apparence', light: 'Clair', dark: 'Sombre', auto: 'Auto', changePassword: 'Changer le mot de passe', current: 'Mot de passe actuel',
     next: 'Nouveau mot de passe (6 à 72 caractères)', save: 'Enregistrer', passwordChanged: 'Mot de passe changé. Les autres appareils ont été déconnectés.',
     devices: 'Appareils', thisDevice: 'cet appareil', revoke: 'Révoquer', neverExpires: 'Reste connecté jusqu’à révocation',
     expires: 'Expire le {{date}}', logOff: 'Se déconnecter', unknownDevice: 'Appareil inconnu',
+    dangerZoneOffline: 'Le changement de mot de passe et la gestion des sessions sont indisponibles en mode hors ligne.',
   },
 }
 

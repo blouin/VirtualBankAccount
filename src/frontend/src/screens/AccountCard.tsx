@@ -5,6 +5,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
 import { api, newKey, type Balance, type FundingRequest, type Page, type Transaction } from '../api'
 import { formatCents, today, toCents } from '../money'
+import { useOffline } from '../offline'
 
 type Kind = 'deposit' | 'request' | 'withdraw'
 
@@ -13,6 +14,7 @@ export const showsFunding = (a: Balance) => (a.dailyFunding ?? 0) > 0 && !a.clos
 
 function AmountSheet({ account, kind, onClose }: { account: Balance; kind: Kind; onClose: () => void }) {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const qc = useQueryClient()
   const [amount, setAmount] = useState<number | string>('')
   const [comment, setComment] = useState('')
@@ -44,7 +46,7 @@ function AmountSheet({ account, kind, onClose }: { account: Balance; kind: Kind;
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          if (valid) send.mutate()
+          if (valid && !isOffline) send.mutate()
         }}
       >
         <Stack>
@@ -54,7 +56,7 @@ function AmountSheet({ account, kind, onClose }: { account: Balance; kind: Kind;
           {send.isError && <Alert color="red">{send.error.message}</Alert>}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-            <Button type="submit" loading={send.isPending} disabled={!valid}>{t('common.send')}</Button>
+            <Button type="submit" loading={send.isPending} disabled={!valid || isOffline}>{t('common.send')}</Button>
           </Group>
         </Stack>
       </form>
@@ -64,6 +66,7 @@ function AmountSheet({ account, kind, onClose }: { account: Balance; kind: Kind;
 
 function Funding({ account }: { account: Balance }) {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const qc = useQueryClient()
   const skipped = !!account.skippedToday
   const toggle = useMutation({
@@ -81,9 +84,10 @@ function Funding({ account }: { account: Balance }) {
           <ActionIcon
             size={44} radius="xl" variant="light" color={color} fz={22}
             loading={toggle.isPending}
+            disabled={isOffline}
             aria-label={skipped ? t('funding.turnOn') : t('funding.turnOff')}
-            title={skipped ? t('funding.turnOn') : t('funding.turnOff')}
-            onClick={() => toggle.mutate()}
+            title={isOffline ? t('common.unavailableOffline') : skipped ? t('funding.turnOn') : t('funding.turnOff')}
+            onClick={() => !isOffline && toggle.mutate()}
           >
             {icon}
           </ActionIcon>
@@ -152,14 +156,15 @@ function PendingList({ accountId }: { accountId: number }) {
 // Mounted only while the card is open, so history and pending load on demand.
 function Details({ account }: { account: Balance }) {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const [kind, setKind] = useState<Kind | null>(null)
   const manager = account.role === 'manager'
   return (
     <Stack mt="md">
       {!account.closedAt && (
         <Group grow>
-          <Button onClick={() => setKind(manager ? 'deposit' : 'request')}>{manager ? t('account.deposit') : t('account.requestDeposit')}</Button>
-          <Button variant="default" onClick={() => setKind('withdraw')}>{t('account.withdraw')}</Button>
+          <Button disabled={isOffline} onClick={() => setKind(manager ? 'deposit' : 'request')}>{manager ? t('account.deposit') : t('account.requestDeposit')}</Button>
+          <Button disabled={isOffline} variant="default" onClick={() => setKind('withdraw')}>{t('account.withdraw')}</Button>
         </Group>
       )}
       <PendingList accountId={account.accountId!} />
@@ -171,19 +176,29 @@ function Details({ account }: { account: Balance }) {
 
 export function AccountCard({ account: a }: { account: Balance }) {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const [opened, { toggle }] = useDisclosure(false)
+  const canExpand = !isOffline
+
   return (
     <Card withBorder radius="md" role="group" aria-label={a.name}>
-      <UnstyledButton onClick={toggle} aria-expanded={opened} aria-label={a.name} w="100%">
+      <UnstyledButton
+        onClick={canExpand ? toggle : undefined}
+        aria-expanded={canExpand ? opened : undefined}
+        aria-disabled={!canExpand}
+        aria-label={a.name}
+        w="100%"
+        style={!canExpand ? { cursor: 'default' } : undefined}
+      >
         <Group justify="space-between" wrap="nowrap">
           <Text fw={600}>{a.name} {a.closedAt && <Text span c="dimmed">({t('accounts.closed')})</Text>}</Text>
-          <Text c="dimmed" aria-hidden>{opened ? '▴' : '▾'}</Text>
+          {canExpand && <Text c="dimmed" aria-hidden>{opened ? '▴' : '▾'}</Text>}
         </Group>
       </UnstyledButton>
       <Text size="xl" fw={700}>{formatCents(a.balance ?? 0)}</Text>
       {(a.pending ?? 0) > 0 && <Text size="sm" c="orange">{t('accounts.pending', { amount: formatCents(a.pending ?? 0) })}</Text>}
       {showsFunding(a) && <Funding account={a} />}
-      <Collapse expanded={opened}>{opened && <Details account={a} />}</Collapse>
+      <Collapse expanded={canExpand && opened}>{canExpand && opened && <Details account={a} />}</Collapse>
     </Card>
   )
 }

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { vi } from 'vitest'
 import i18n from '../i18n'
 import { AuthProvider } from '../auth'
+import { OfflineProvider } from '../offline'
 import { saveSession } from '../api'
 
 export type Route = (method: string, path: string, body: unknown) => unknown | Response
@@ -38,14 +39,22 @@ export function loggedIn(name = 'Parent 1') {
   saveSession({ token: 't', person: { id: 1, name }, familyCode: 'POC' })
 }
 
-export function renderApp(ui: ReactNode, path = '/') {
+export function renderApp(
+  ui: ReactNode,
+  path = '/',
+  { isOffline }: { isOffline?: boolean } = {},
+) {
   void i18n.changeLanguage('en')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <MantineProvider env="test">
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={[path]}>
-          <AuthProvider>{ui}</AuthProvider>
+          <AuthProvider>
+            <OfflineProvider forcedOffline={isOffline}>
+              {ui}
+            </OfflineProvider>
+          </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
     </MantineProvider>,

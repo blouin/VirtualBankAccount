@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Card, Collapse, Group, PasswordInput, SegmentedControl, Stack, Text, Title, UnstyledButton, useMantineColorScheme } from '@mantine/core'
+import { Alert, Badge, Button, Card, Collapse, Group, PasswordInput, SegmentedControl, Stack, Text, Title, UnstyledButton, useMantineColorScheme } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
 import { api, type DeviceSession } from '../api'
 import { useAuth } from '../auth'
 import { setLang } from '../i18n'
+import { useOffline } from '../offline'
 
 function ChangePassword() {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const save = useMutation({
@@ -22,16 +24,16 @@ function ChangePassword() {
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        save.mutate()
+        if (!isOffline) save.mutate()
       }}
     >
       <Stack>
         <Text fw={600}>{t('settings.changePassword')}</Text>
-        <PasswordInput label={t('settings.current')} value={current} onChange={(e) => setCurrent(e.currentTarget.value)} />
-        <PasswordInput label={t('settings.next')} value={next} onChange={(e) => setNext(e.currentTarget.value)} />
+        <PasswordInput disabled={isOffline} label={t('settings.current')} value={current} onChange={(e) => setCurrent(e.currentTarget.value)} />
+        <PasswordInput disabled={isOffline} label={t('settings.next')} value={next} onChange={(e) => setNext(e.currentTarget.value)} />
         {save.isError && <Alert color="red">{save.error.message}</Alert>}
         {save.isSuccess && <Alert color="green">{t('settings.passwordChanged')}</Alert>}
-        <Button type="submit" loading={save.isPending} disabled={current === '' || next.length < 6} w="fit-content">{t('settings.save')}</Button>
+        <Button type="submit" loading={save.isPending} disabled={isOffline || current === '' || next.length < 6} w="fit-content">{t('settings.save')}</Button>
       </Stack>
     </form>
   )
@@ -39,8 +41,9 @@ function ChangePassword() {
 
 function Devices() {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['sessions'], queryFn: () => api<DeviceSession[]>('GET', '/auth/sessions') })
+  const q = useQuery({ queryKey: ['sessions'], queryFn: () => api<DeviceSession[]>('GET', '/auth/sessions'), enabled: !isOffline })
   const revoke = useMutation({
     mutationFn: (id: number) => api('DELETE', `/auth/sessions/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
@@ -60,7 +63,7 @@ function Devices() {
                 {s.expiresAt ? t('settings.expires', { date: new Date(s.expiresAt).toLocaleDateString() }) : t('settings.neverExpires')}
               </Text>
             </div>
-            {!s.current && <Button size="xs" variant="light" color="red" onClick={() => revoke.mutate(s.id)}>{t('settings.revoke')}</Button>}
+            {!s.current && <Button size="xs" variant="light" color="red" disabled={isOffline} onClick={() => revoke.mutate(s.id)}>{t('settings.revoke')}</Button>}
           </Group>
         </Card>
       ))}
@@ -71,20 +74,34 @@ function Devices() {
 
 function DangerZone() {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const [opened, { toggle }] = useDisclosure(false)
+  const canOpen = !isOffline
+
   return (
-    <Card withBorder radius="md" style={{ borderColor: 'var(--mantine-color-red-7)' }}>
-      <UnstyledButton onClick={toggle} aria-expanded={opened} w="100%">
+    <Card withBorder radius="md" style={{ borderColor: 'var(--mantine-color-red-7)', opacity: isOffline ? 0.6 : 1 }}>
+      <UnstyledButton
+        onClick={canOpen ? toggle : undefined}
+        aria-expanded={canOpen ? opened : undefined}
+        aria-disabled={!canOpen}
+        w="100%"
+        style={!canOpen ? { cursor: 'default' } : undefined}
+      >
         <Group justify="space-between" wrap="nowrap">
           <div>
-            <Text fw={600} c="red">{t('settings.dangerZone')}</Text>
-            <Text size="sm" c="dimmed">{t('settings.dangerHint')}</Text>
+            <Group gap="xs">
+              <Text fw={600} c="red">{t('settings.dangerZone')}</Text>
+              {isOffline && <Badge size="xs" color="gray">{t('common.offline')}</Badge>}
+            </Group>
+            <Text size="sm" c="dimmed">
+              {isOffline ? t('settings.dangerZoneOffline') : t('settings.dangerHint')}
+            </Text>
           </div>
-          <Text c="dimmed" aria-hidden>{opened ? '▴' : '▾'}</Text>
+          {canOpen && <Text c="dimmed" aria-hidden>{opened ? '▴' : '▾'}</Text>}
         </Group>
       </UnstyledButton>
-      <Collapse expanded={opened}>
-        {opened && (
+      <Collapse expanded={canOpen && opened}>
+        {canOpen && opened && (
           <Stack mt="md" gap="xl">
             <ChangePassword />
             <Devices />

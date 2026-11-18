@@ -5,22 +5,24 @@ import { useTranslation } from 'react-i18next'
 import { api, type Balance, type FundingRequest, type Page, type Person } from '../api'
 import { useAuth } from '../auth'
 import { formatCents } from '../money'
+import { useOffline } from '../offline'
 import { accountsKey } from './Accounts'
 
 export function Requests() {
   const { t } = useTranslation()
+  const { isOffline } = useOffline()
   const qc = useQueryClient()
   const { session } = useAuth()
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [dialog, setDialog] = useState<{ id: number; action: 'approve' | 'reject' } | null>(null)
   const [note, setNote] = useState('')
 
-  const accounts = useQuery({ queryKey: accountsKey, queryFn: () => api<Balance[]>('GET', '/accounts') })
+  const accounts = useQuery({ queryKey: accountsKey, queryFn: () => api<Balance[]>('GET', '/accounts'), enabled: !isOffline })
   // Names for "requested by"; the public login list is enough, and a miss falls back to the id.
   const persons = useQuery({
     queryKey: ['persons', session?.familyCode],
     queryFn: () => api<Person[]>('GET', `/auth/persons?familyCode=${encodeURIComponent(session!.familyCode)}`, { auth: false }),
-    enabled: !!session,
+    enabled: !!session && !isOffline,
   })
   const list = useInfiniteQuery({
     queryKey: ['requests', 'list', filter],
@@ -28,6 +30,7 @@ export function Requests() {
     queryFn: ({ pageParam }) =>
       api<Page<FundingRequest>>('GET', `/requests?${filter === 'pending' ? 'status=pending&' : ''}page=${pageParam}&pageSize=20`),
     getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
+    enabled: !isOffline,
   })
 
   const decide = useMutation({
@@ -39,6 +42,17 @@ export function Requests() {
       await Promise.all(['requests', 'accounts', 'transactions'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
     },
   })
+
+  if (isOffline) {
+    return (
+      <Stack>
+        <Title order={2}>{t('requests.title')}</Title>
+        <Alert color="blue" title={t('common.offline')}>
+          {t('requests.unavailableOffline')}
+        </Alert>
+      </Stack>
+    )
+  }
 
   const accountOf = (id?: number) => accounts.data?.find((a) => a.accountId === id)
   const nameOf = (id?: number) => persons.data?.find((p) => p.id === id)?.name ?? `#${id}`
