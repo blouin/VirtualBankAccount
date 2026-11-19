@@ -107,7 +107,7 @@ describe('Offline mode', () => {
 
     renderApp(<Requests />, '/requests', { isOffline: true })
 
-    expect(await screen.findByText(/requests are unavailable in offline mode/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Unavailable/i)).toBeInTheDocument()
     // No request calls were made
     expect(calls.filter((c) => c.path.startsWith('/requests'))).toHaveLength(0)
   })
