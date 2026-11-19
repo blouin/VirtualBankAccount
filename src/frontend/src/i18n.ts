@@ -12,7 +12,7 @@ const en = {
     loading: 'Loading…',
     error: 'Something went wrong',
     offline: 'Offline',
-    offlineBanner: 'Offline mode — showing latest available balances',
+    offlineBanner: 'No internet connection',
     unavailableOffline: 'Unavailable in offline mode',
   },
   login: {
@@ -40,7 +40,7 @@ const en = {
     title: 'Requests', pending: 'Pending', all: 'All', approve: 'Approve', reject: 'Reject', none: 'No requests.',
     approved: 'Approved', rejected: 'Rejected', status: { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' },
     rejectTitle: 'Reject request', approveTitle: 'Approve request', approveWithComment: 'Approve with comment…', moreApprove: 'More approve options', reason: 'Comment (optional)', requestedBy: 'Requested by {{name}} on {{date}}', requesterComment: 'Requester comment: {{comment}}', approverComment: 'Approver comment: {{comment}}',
-    unavailableOffline: 'Requests are unavailable in offline mode. Connect to the internet to view or manage requests.',
+    unavailableOffline: 'Unavailable. Connect to the internet to view or manage requests.',
   },
   settings: {
     title: 'Settings', connected: 'Connected:', dangerZone: 'Danger zone', dangerHint: 'Password and signed-in devices', language: 'Language', appearance: 'Appearance', light: 'Light', dark: 'Dark', auto: 'Auto', changePassword: 'Change password', current: 'Current password',
@@ -62,7 +62,7 @@ const fr: typeof en = {
     loading: 'Chargement…',
     error: 'Une erreur est survenue',
     offline: 'Hors ligne',
-    offlineBanner: 'Mode hors ligne — affichage des derniers soldes disponibles',
+    offlineBanner: 'Aucune connexion internet',
     unavailableOffline: 'Indisponible en mode hors ligne',
   },
   login: {
@@ -90,7 +90,7 @@ const fr: typeof en = {
     title: 'Demandes', pending: 'En attente', all: 'Toutes', approve: 'Approuver', reject: 'Refuser', none: 'Aucune demande.',
     approved: 'Approuvée', rejected: 'Refusée', status: { pending: 'En attente', approved: 'Approuvée', rejected: 'Refusée' },
     rejectTitle: 'Refuser la demande', approveTitle: 'Approuver la demande', approveWithComment: 'Approuver avec un commentaire…', moreApprove: 'Plus d’options d’approbation', reason: 'Commentaire (facultatif)', requestedBy: 'Demandé par {{name}} le {{date}}', requesterComment: 'Commentaire du demandeur : {{comment}}', approverComment: 'Commentaire de l’approbateur : {{comment}}',
-    unavailableOffline: 'Les demandes ne sont pas disponibles en mode hors ligne. Connectez-vous à Internet pour voir ou gérer les demandes.',
+    unavailableOffline: 'Indisponibles. Connectez-vous à Internet pour voir ou gérer les demandes.',
   },
   settings: {
     title: 'Réglages', connected: 'Connecté :', dangerZone: 'Zone sensible', dangerHint: 'Mot de passe et appareils connectés', language: 'Langue', appearance: 'Apparence', light: 'Clair', dark: 'Sombre', auto: 'Auto', changePassword: 'Changer le mot de passe', current: 'Mot de passe actuel',
