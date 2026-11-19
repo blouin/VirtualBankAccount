@@ -48,7 +48,7 @@ describe('Offline mode', () => {
     renderApp(<App />, '/', { isOffline: true })
 
     const banner = await screen.findByRole('status')
-    expect(banner).toHaveTextContent(/offline mode — showing latest available balances/i)
+    expect(banner).toHaveTextContent(/No internet connection/i)
   })
 
   it('does not display the offline banner when online', async () => {
